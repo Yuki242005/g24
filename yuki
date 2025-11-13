@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Mini Tower Defense</title>
+<style>
+  canvas { background: #eee; display: block; margin: 20px auto; border:1px solid #333; }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas" width="600" height="400"></canvas>
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let money = 100;
+let lives = 10;
+let enemies = [];
+let towers = [];
+let bullets = [];
+let wave = 0;
+
+// Đường đi quái
+const path = [{x:0,y:180},{x:600,y:180}];
+
+// Enemy class
+class Enemy {
+  constructor() {
+    this.x = path[0].x;
+    this.y = path[0].y;
+    this.hp = 10;
+    this.speed = 1;
+  }
+  move() { this.x += this.speed; }
+  draw() {
+    ctx.fillStyle='red';
+    ctx.fillRect(this.x-10,this.y-10,20,20);
+  }
+}
+
+// Tower class
+class Tower {
+  constructor(x,y) {
+    this.x = x; this.y = y;
+    this.range = 100;
+    this.fireRate = 30; // frame
+    this.cooldown = 0;
+  }
+  draw() {
+    ctx.fillStyle='blue';
+    ctx.fillRect(this.x-15,this.y-15,30,30);
+  }
+  shoot() {
+    if(this.cooldown>0){this.cooldown--; return;}
+    for(let e of enemies){
+      let dx=e.x-this.x, dy=e.y-this.y;
+      if(Math.sqrt(dx*dx+dy*dy)<this.range){
+        bullets.push(new Bullet(this.x,this.y,e));
+        this.cooldown=this.fireRate;
+        break;
+      }
+    }
+  }
+}
+
+// Bullet class
+class Bullet {
+  constructor(x,y,target){
+    this.x=x; this.y=y; this.target=target; this.speed=5;
+  }
+  move() {
+    let dx=this.target.x-this.x;
+    let dy=this.target.y-this.y;
+    let dist=Math.sqrt(dx*dx+dy*dy);
+    this.x += this.speed*dx/dist;
+    this.y += this.speed*dy/dist;
+  }
+  draw() {
+    ctx.fillStyle='black';
+    ctx.beginPath();
+    ctx.arc(this.x,this.y,5,0,Math.PI*2);
+    ctx.fill();
+  }
+}
+
+// Game Loop
+function gameLoop(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Spawn enemy
+  if(enemies.length<5 && Math.random()<0.01){
+    enemies.push(new Enemy());
+  }
+
+  // Update and draw enemies
+  for(let i=enemies.length-1;i>=0;i--){
+    enemies[i].move();
+    enemies[i].draw();
+    if(enemies[i].x>canvas.width){
+      lives--;
+      enemies.splice(i,1);
+    }
+  }
+
+  // Update and draw towers
+  for(let t of towers){
+    t.draw();
+    t.shoot();
+  }
+
+  // Update and draw bullets
+  for(let i=bullets.length-1;i>=0;i--){
+    bullets[i].move();
+    bullets[i].draw();
+    if(bullets[i].target.hp<=0){
+      bullets.splice(i,1);
+      continue;
+    }
+    let dx=bullets[i].x-bullets[i].target.x;
+    let dy=bullets[i].y-bullets[i].target.y;
+    if(Math.sqrt(dx*dx+dy*dy)<5){
+      bullets[i].target.hp -=5;
+      if(bullets[i].target.hp<=0){
+        money+=10;
+        let index=enemies.indexOf(bullets[i].target);
+        if(index>-1) enemies.splice(index,1);
+      }
+      bullets.splice(i,1);
+    }
+  }
+
+  // Draw UI
+  ctx.fillStyle='black';
+  ctx.font='16px Arial';
+  ctx.fillText(`Tiền: ${money}   Mạng: ${lives}`,10,20);
+
+  if(lives>0) requestAnimationFrame(gameLoop);
+  else ctx.fillText('Game Over!',250,200);
+}
+
+// Mouse click to place tower
+canvas.addEventListener('click',(e)=>{
+  let rect = canvas.getBoundingClientRect();
+  let x = e.clientX - rect.left;
+  let y = e.clientY - rect.top;
+  if(money>=50){ 
+    towers.push(new Tower(x,y));
+    money-=50;
+  }
+});
+
+// Start game
+gameLoop();
+</script>
+</body>
+</html>
